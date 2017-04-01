@@ -28,4 +28,6 @@ bool unhide_pid(const char *pid);
 
 bool init_procfs(void);
 void cleanup_procfs(void);
+
+bool is_inode_hidden(const struct inode *inode);
 #endif

